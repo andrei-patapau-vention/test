@@ -14,44 +14,62 @@ public class ItemsController : ControllerBase
         new Item { Id = 3, Name = "Doohickey", Description = null },
     ];
 
+    private static readonly Lock ItemsLock = new();
+
     [HttpGet]
-    public IEnumerable<Item> GetAll() => Items;
+    public IEnumerable<Item> GetAll()
+    {
+        lock (ItemsLock)
+            return Items.ToList();
+    }
 
     [HttpGet("{id:int}")]
     public ActionResult<Item> GetById(int id)
     {
-        var item = Items.FirstOrDefault(x => x.Id == id);
-        return item is null ? NotFound() : Ok(item);
+        lock (ItemsLock)
+        {
+            var item = Items.FirstOrDefault(x => x.Id == id);
+            return item is null ? NotFound() : Ok(item);
+        }
     }
 
     [HttpPost]
     public ActionResult<Item> Create(Item item)
     {
-        item.Id = Items.Count > 0 ? Items.Max(x => x.Id) + 1 : 1;
-        Items.Add(item);
+        lock (ItemsLock)
+        {
+            item.Id = Items.Count > 0 ? Items.Max(x => x.Id) + 1 : 1;
+            Items.Add(item);
+        }
         return CreatedAtAction(nameof(GetById), new { id = item.Id }, item);
     }
 
     [HttpPut("{id:int}")]
     public ActionResult<Item> Update(int id, Item item)
     {
-        var existing = Items.FirstOrDefault(x => x.Id == id);
-        if (existing is null)
-            return NotFound();
+        lock (ItemsLock)
+        {
+            var existing = Items.FirstOrDefault(x => x.Id == id);
+            if (existing is null)
+                return NotFound();
 
-        existing.Name = item.Name;
-        existing.Description = item.Description;
-        return Ok(existing);
+            existing.Name = item.Name;
+            existing.Description = item.Description;
+            return Ok(existing);
+        }
     }
 
     [HttpDelete("{id:int}")]
     public IActionResult Delete(int id)
     {
-        var item = Items.FirstOrDefault(x => x.Id == id);
-        if (item is null)
-            return NotFound();
+        lock (ItemsLock)
+        {
+            var item = Items.FirstOrDefault(x => x.Id == id);
+            if (item is null)
+                return NotFound();
 
-        Items.Remove(item);
-        return NoContent();
+            Items.Remove(item);
+            return NoContent();
+        }
     }
 }
